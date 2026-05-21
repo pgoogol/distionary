@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8" />
+<title>System Zarządzania Słownikami — Hi-Fi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="ds.css" />
+
+<style>
+  body { background: #f4f4f5; }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="primitives.jsx"></script>
+<script type="text/babel" src="chrome.jsx"></script>
+<script type="text/babel" src="scene-main.jsx"></script>
+<script type="text/babel" src="scene-import.jsx"></script>
+<script type="text/babel" src="scene-aux.jsx"></script>
+<script type="text/babel" src="scene-states.jsx"></script>
+<script type="text/babel" src="scene-system.jsx"></script>
+<script type="text/babel" src="scene-extras.jsx"></script>
+<script type="text/babel" src="scene-menus.jsx"></script>
+<script type="text/babel" src="scene-more.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState } = React;
+
+/* Each artboard wraps its content in this fixed-size frame so the layout
+   never reflows when the canvas zoom changes. */
+function Frame({ children, w, h, dim }) {
+  return (
+    <div style={{
+      width: w, height: h, position: 'relative', overflow: 'hidden',
+      background: dim ? '#18181b' : 'var(--bg)',
+    }}>{children}</div>
+  );
+}
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "showExportMenu": true,
+  "rowsSelected": true,
+  "showToast": true,
+  "emptyVariant": "fresh"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const selectedRows = t.rowsSelected ? ['PL', 'DE', 'CZ'] : [];
+
+  return (
+    <>
+      <DesignCanvas>
+
+        <DCSection id="primary" title="① Główny widok słownika" subtitle="Bazowy ekran — kod → opis jako rdzeń każdego wpisu, dodatkowe kolumny per słownik">
+
+          <DCArtboard id="main" label="A · Kraje — widok bazowy" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" showExportMenu={false} selectedRows={selectedRows} />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="main-simple" label="B · Statusy zamówień — inny słownik" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="statuses" showExportMenu={false} selectedRows={[]} />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="main-export" label="C · Otwarte menu eksportu (CSV / JSON / XLSX)" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" showExportMenu={t.showExportMenu} selectedRows={[]} />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="main-toast" label="D · Po imporcie — toast + odświeżona tabela" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" showExportMenu={false} selectedRows={[]} />
+              {t.showToast && <SuccessToast />}
+            </Frame>
+          </DCArtboard>
+
+        </DCSection>
+
+        <DCSection id="import" title="② Modal importu — 4 stany kreatora" subtitle="Wgrywanie · opcje zaawansowane · walidacja błędów · sukces z podsumowaniem">
+
+          <DCArtboard id="import-initial" label="① Stan początkowy — wgrywanie pliku" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView selectedRows={[]} />
+              <div className="q-scrim"><SceneImportInitial /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="import-advanced" label="② Plik wybrany — opcje zaawansowane rozwinięte" width={1280} height={1180}>
+            <Frame w={1280} h={1180}>
+              <SceneMainView selectedRows={[]} />
+              <div className="q-scrim"><SceneImportAdvanced /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="import-error" label="③ Stan błędu walidacji" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView selectedRows={[]} />
+              <div className="q-scrim"><SceneImportError /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="import-success" label="④ Stan sukcesu — karta podsumowania" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView selectedRows={[]} />
+              <div className="q-scrim"><SceneImportSuccess /></div>
+            </Frame>
+          </DCArtboard>
+
+        </DCSection>
+
+        <DCSection id="aux" title="③ Historia i edycja" subtitle="Drawer historii słownika · podgląd wpisu · edycja · historia pojedynczego wpisu">
+
+          <DCArtboard id="drawer" label="A · Drawer historii — poziom: cały słownik" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} />
+              <SceneAuditDrawer dict="countries" />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="preview" label="B · Podgląd wpisu — Podstawowe (z przyciskami Eksport + Edytuj)" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} />
+              <div className="q-scrim"><SceneEditEntry dict="countries" mode="view" initialTab="basic" /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="edit" label="C · Edycja wpisu — Podstawowe (kod · wartość · status)" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} />
+              <div className="q-scrim"><SceneEditEntry dict="countries" mode="edit" initialTab="basic" /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="meta" label="D · Podgląd — Metadane (dane audytowe)" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} />
+              <div className="q-scrim"><SceneEditEntry dict="countries" mode="view" initialTab="meta" /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="entry-history" label="E · Historia pojedynczego wpisu (entry-level)" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} />
+              <div className="q-scrim"><SceneEditEntry dict="countries" mode="view" initialTab="history" /></div>
+            </Frame>
+          </DCArtboard>
+
+        </DCSection>
+
+        <DCSection id="states" title="④ Stany brzegowe i CRUD" subtitle="Pusty słownik · brak wyników · ładowanie · filtry rozwinięte · modal usuwania · nowy wpis">
+
+          <DCArtboard id="empty-fresh" label="A · Stan pusty — nowo utworzony słownik" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} state="empty" />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="empty-search" label="B · Brak wyników wyszukiwania" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} state="no-results" searchQuery="xyz" />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="loading" label="C · Stan ładowania — skeleton table" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} state="loading" />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="filters" label="D · Rozwinięty panel filtrów (popover)" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} showFilterPopover={true} />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="delete" label="E · Modal potwierdzenia usuwania (3 wpisy)" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={['PL','DE','CZ']} />
+              <div className="q-scrim"><SceneDeleteConfirm count={3} /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="new-entry" label="F · Tworzenie nowego wpisu" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} />
+              <div className="q-scrim"><SceneNewEntry dict="countries" /></div>
+            </Frame>
+          </DCArtboard>
+
+        </DCSection>
+
+        <DCSection id="system" title="⑤ Lista słowników" subtitle="Wszystkie słowniki w systemie · tworzenie nowego słownika">
+
+          <DCArtboard id="dict-list" label="A · Wszystkie słowniki — landing page" width={1280} height={980}>
+            <Frame w={1280} h={980}>
+              <SceneDictionaryList />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="new-dict-1" label="B · Nowy słownik — ① Podstawowe (nazwa, klucz, opis, ikona)" width={1280} height={980}>
+            <Frame w={1280} h={980}>
+              <SceneDictionaryList />
+              <div className="q-scrim"><SceneNewDictionary step={1} /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="new-dict-2" label="C · Nowy słownik — ② Schemat danych (kolumny niestandardowe)" width={1280} height={1100}>
+            <Frame w={1280} h={1100}>
+              <SceneDictionaryList />
+              <div className="q-scrim"><SceneNewDictionary step={2} /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="new-dict-3" label="D · Nowy słownik — ③ Źródło danych (pusty / import / kopia)" width={1280} height={980}>
+            <Frame w={1280} h={980}>
+              <SceneDictionaryList />
+              <div className="q-scrim"><SceneNewDictionary step={3} /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="new-dict-4" label="E · Nowy słownik — ④ Podsumowanie i utworzenie" width={1280} height={1100}>
+            <Frame w={1280} h={1100}>
+              <SceneDictionaryList />
+              <div className="q-scrim"><SceneNewDictionary step={4} /></div>
+            </Frame>
+          </DCArtboard>
+
+        </DCSection>
+
+        <DCSection id="extras" title="⑥ Edycja masowa, walidacja, ustawienia i błędy" subtitle="Zmiana statusu dla wielu wpisów · błędy walidacji formularza · ustawienia słownika · błąd 500">
+
+          <DCArtboard id="bulk-status" label="A · Edycja masowa — zmiana statusu (12 wpisów)" width={1280} height={980}>
+            <Frame w={1280} h={980}>
+              <SceneMainView dict="countries" selectedRows={['PL','DE','CZ']} />
+              <div className="q-scrim"><SceneBulkStatus count={12} /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="validation" label="B · Walidacja formularza — błędy w polach" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneMainView dict="countries" selectedRows={[]} />
+              <div className="q-scrim"><SceneNewEntryErrors /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="dict-settings" label="C · Ustawienia słownika (per-dict)" width={1280} height={1180}>
+            <Frame w={1280} h={1180}>
+              <SceneDictSettings />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="error-500" label="D · Błąd 500 — brak połączenia z serwerem" width={1280} height={980}>
+            <Frame w={1280} h={980}>
+              <Scene500Error />
+            </Frame>
+          </DCArtboard>
+
+        </DCSection>
+
+        <DCSection id="menus" title="⑦ Menu kontekstowe (trzy kropki)" subtitle="Akcje dostępne dla słownika na liście i dla pojedynczego wpisu w tabeli">
+
+          <DCArtboard id="kebab-dict" label="A · Menu kontekstowe słownika (karta na liście)" width={1280} height={980}>
+            <Frame w={1280} h={980}>
+              <SceneDictKebab />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="kebab-row" label="B · Menu kontekstowe wpisu (wiersz tabeli)" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneRowKebab />
+            </Frame>
+          </DCArtboard>
+
+        </DCSection>
+
+        <DCSection id="more" title="⑧ Mapowanie, kolumny, search, tooltipy i eksport" subtitle="Mapowanie kolumn przy imporcie · column manager · globalne wyszukiwanie (⌘K) · tooltipy · eksport w toku">
+
+          <DCArtboard id="import-mapping" label="A · Import — mapowanie kolumn pliku" width={1280} height={980}>
+            <Frame w={1280} h={980}>
+              <SceneMainView dict="countries" selectedRows={[]} />
+              <div className="q-scrim"><SceneImportMapping /></div>
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="column-manager" label="B · Konfiguracja kolumn (popover z toolbara)" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneColumnManager />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="global-search" label="C · Globalne wyszukiwanie (⌘K) — wyniki cross-dict" width={1280} height={980}>
+            <Frame w={1280} h={980}>
+              <SceneGlobalSearch />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="tooltips" label="D · Tooltipy — hover states" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneTooltips />
+            </Frame>
+          </DCArtboard>
+
+          <DCArtboard id="export-progress" label="E · Eksport w toku — toast z progress bar" width={1280} height={820}>
+            <Frame w={1280} h={820}>
+              <SceneExportProgress />
+            </Frame>
+          </DCArtboard>
+
+        </DCSection>
+
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Stan widoku głównego">
+          <TweakToggle label="Pokaż otwarte menu eksportu" value={t.showExportMenu} onChange={v => setTweak('showExportMenu', v)} />
+          <TweakToggle label="Zaznacz kilka wierszy (akcje masowe)" value={t.rowsSelected} onChange={v => setTweak('rowsSelected', v)} />
+          <TweakToggle label="Pokaż toast potwierdzający" value={t.showToast} onChange={v => setTweak('showToast', v)} />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body>
+</html>
